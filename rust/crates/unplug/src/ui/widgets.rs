@@ -96,29 +96,23 @@ pub fn tab(ui: &mut Ui, text: &str, active: bool, accent: Color32) -> Response {
     resp.on_hover_cursor(egui::CursorIcon::PointingHand)
 }
 
-/// A switch: on is the accent colour. Not clickable when `enabled` is false.
-pub fn switch(ui: &mut Ui, on: bool, enabled: bool, accent: Color32) -> Response {
+/// A switch: `on_color` when it is on, `off_color` when it is off. Not clickable when `enabled` is false.
+pub fn switch(ui: &mut Ui, on: bool, enabled: bool, on_color: Color32, off_color: Color32) -> Response {
     let (rect, resp) = ui.allocate_exact_size(Vec2::new(42.0, 24.0), if enabled { Sense::click() } else { Sense::hover() });
     let fade = if enabled { 1.0 } else { 0.4 };
-    let track = if on {
-        theme::with_alpha(accent, fade)
-    } else {
-        theme::with_alpha(theme::OAK_LIT, fade)
-    };
-    ui.painter().rect_filled(rect, CornerRadius::same(255), track);
+    ui.painter().rect_filled(
+        rect,
+        CornerRadius::same(255),
+        theme::with_alpha(if on { on_color } else { off_color }, fade),
+    );
     let x = ui.ctx().animate_value_with_time(resp.id, if on { 1.0 } else { 0.0 }, 0.12);
     let knob = egui::pos2(rect.left() + 12.0 + x * (rect.width() - 24.0), rect.center().y);
-    let knob_color = if on {
-        Color32::from_rgb(0x14, 0x12, 0x10)
-    } else {
-        theme::with_alpha(theme::PARCHMENT, fade)
-    };
-    ui.painter().circle_filled(knob, 8.5, knob_color);
+    ui.painter().circle_filled(knob, 8.5, theme::with_alpha(theme::PARCHMENT, fade));
     if enabled && resp.hovered() {
         ui.painter().rect_stroke(
             rect,
             CornerRadius::same(255),
-            Stroke::new(1.0, theme::with_alpha(Color32::WHITE, 0.25)),
+            Stroke::new(1.0, theme::with_alpha(Color32::WHITE, 0.3)),
             egui::StrokeKind::Inside,
         );
     }
@@ -127,20 +121,6 @@ pub fn switch(ui: &mut Ui, on: bool, enabled: bool, accent: Color32) -> Response
     } else {
         resp
     }
-}
-
-/// Three dots: opens a menu.
-pub fn dots(ui: &mut Ui) -> Response {
-    let (rect, resp) = ui.allocate_exact_size(Vec2::splat(28.0), Sense::click());
-    if resp.hovered() {
-        ui.painter()
-            .rect_filled(rect, CornerRadius::same(8), theme::with_alpha(Color32::WHITE, 0.06));
-    }
-    let color = if resp.hovered() { theme::PARCHMENT } else { theme::MUTED };
-    for dx in [-6.0, 0.0, 6.0] {
-        ui.painter().circle_filled(rect.center() + Vec2::new(dx, 0.0), 1.8, color);
-    }
-    resp.on_hover_cursor(egui::CursorIcon::PointingHand)
 }
 
 /// Text that is a button without being drawn as one.

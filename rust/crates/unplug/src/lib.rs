@@ -5,8 +5,9 @@ pub mod app;
 pub mod backend;
 pub mod dev;
 pub mod device;
-pub mod prefs;
+pub mod http;
 pub mod ui;
+pub mod update_check;
 pub mod winapi;
 
 /// The release number, read from the repository's `VERSION` file at build time.

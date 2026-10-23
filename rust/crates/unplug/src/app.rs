@@ -535,7 +535,7 @@ mod tests {
         let mut app = demo_app();
         wait_for(&mut app, |a| a.loaded);
         let keyboard = app.devices.iter().find(|d| d.name == "USB Composite Device").unwrap().clone();
-        assert_eq!(app.category_of(&keyboard), Category::Keyboard);
+        assert_eq!(app.category_of(&keyboard), Category::Essential);
         app.toggle(&keyboard);
         assert!(app.working.is_empty() && app.confirm.is_none());
         let stick = app.devices.iter().find(|d| d.name == "SanDisk Ultra").unwrap().clone();
@@ -554,8 +554,7 @@ mod tests {
             tabs,
             [
                 Category::Controller,
-                Category::Keyboard,
-                Category::Mouse,
+                Category::Essential,
                 Category::Storage,
                 Category::Audio,
                 Category::Camera

@@ -31,7 +31,7 @@ pub fn screenshot_tick(ctx: &egui::Context) {
     }
 }
 
-/// The tab to start on: the one `UNPLUG_TAB` names (`keyboards`, `mice`, ...), else the controllers.
+/// The tab to start on: the one `UNPLUG_TAB` names (`essentials`, `storage`, ...), else the controllers.
 pub fn start_tab() -> Category {
     let wanted = std::env::var("UNPLUG_TAB").unwrap_or_default().to_lowercase();
     Category::ALL

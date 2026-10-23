@@ -1,0 +1,26 @@
+[package]
+name = "unplug"
+description = "Unplug: block USB devices (joysticks, pads) so that no application can read them"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[lib]
+name = "unplug"
+path = "src/lib.rs"
+
+[[bin]]
+name = "unplug"
+path = "src/main.rs"
+
+[dependencies]
+eframe = { version = "0.37", default-features = false, features = ["accesskit", "default_fonts", "glow", "wayland", "x11"] }
+
+image = { version = "0.25", default-features = false, features = ["png"] }
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_Devices_DeviceAndDriverInstallation", "Win32_Devices_Properties", "Win32_System_Registry", "Win32_UI_Controls"] }
+
+[build-dependencies]
+winresource = "0.1"

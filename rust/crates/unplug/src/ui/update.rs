@@ -2,10 +2,10 @@
 //! Unplug's own update, in a window (the launcher's): what is new, then the download's progress, then (if it fails) why.
 
 use super::theme;
-use super::widgets::{primary_button, secondary_button};
+use super::widgets::{centered_buttons, dialog, dialog_heading, primary_button, secondary_button};
 use crate::app::{Msg, UpdateModal, UsbApp};
 use crate::update_check::{self, Check};
-use eframe::egui::{self, RichText, Vec2};
+use eframe::egui::{self, Align, Layout, RichText};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
@@ -100,81 +100,97 @@ impl UsbApp {
     pub fn update_window(&mut self, ctx: &egui::Context) {
         let Some(modal) = self.update_modal.clone() else { return };
         let tag = self.update.as_ref().map(|u| u.tag.clone()).unwrap_or_default();
-        let title = match modal.stage.as_str() {
-            "busy" => "UPDATING".to_string(),
-            "error" => "UPDATE FAILED".into(),
-            "current" => "UP TO DATE".into(),
-            "unreachable" => "CAN'T CHECK".into(),
-            _ => format!("{tag} IS OUT"),
+        let (title, line) = match modal.stage.as_str() {
+            "busy" => ("Updating".to_string(), String::new()),
+            "error" => ("Update failed".to_string(), modal.text.clone()),
+            "current" => (
+                "Unplug is up to date".to_string(),
+                format!("You have the newest version, {}.", crate::VERSION),
+            ),
+            "unreachable" => (
+                "Can't check for updates".to_string(),
+                "GitHub could not be reached. Check your connection and try again.".to_string(),
+            ),
+            _ => (format!("Unplug {tag} is out"), String::new()),
         };
         let accent = theme::ACCENT;
+        let width = 380.0;
         let (mut close, mut update, mut page) = (false, false, false);
-        egui::Window::new(RichText::new(title).strong())
-            .collapsible(false)
-            .resizable(false)
-            .anchor(egui::Align2::CENTER_CENTER, Vec2::ZERO)
-            .fixed_size(Vec2::new(400.0, 0.0))
-            .show(ctx, |ui| match modal.stage.as_str() {
+        let enter = ctx.input(|i| i.key_pressed(egui::Key::Enter));
+        let escape = ctx.input(|i| i.key_pressed(egui::Key::Escape));
+        dialog(ctx, "update", width, |ui| {
+            dialog_heading(ui, &title, &line);
+            match modal.stage.as_str() {
                 "current" | "unreachable" => {
-                    ui.label(if modal.stage == "current" {
-                        "You have the newest version of Unplug."
-                    } else {
-                        "GitHub could not be reached. Check your connection and try again."
+                    ui.add_space(16.0);
+                    centered_buttons(ui, width, &["Close"], |ui| {
+                        if primary_button(ui, "Close", accent, true).clicked() || enter {
+                            close = true;
+                        }
                     });
-                    if primary_button(ui, "CLOSE", accent, true).clicked() {
-                        close = true;
-                    }
                 }
                 "offer" => {
                     if let Some(u) = &self.update {
                         if !u.notes.is_empty() {
-                            egui::ScrollArea::vertical().max_height(200.0).show(ui, |ui| {
-                                ui.add(egui::Label::new(RichText::new(&u.notes).size(14.0)).wrap());
+                            ui.add_space(12.0);
+                            egui::ScrollArea::vertical().max_height(180.0).show(ui, |ui| {
+                                ui.with_layout(Layout::top_down(Align::Min), |ui| {
+                                    ui.add(egui::Label::new(RichText::new(&u.notes).size(14.0)).wrap());
+                                });
                             });
                         }
                     }
+                    ui.add_space(10.0);
                     ui.add(
                         egui::Label::new(
                             RichText::new(
                                 "Unplug closes, puts the new version in its place and opens again. The devices you blocked stay blocked.",
                             )
-                            .color(theme::PARCHMENT_DIM),
+                            .size(12.5)
+                            .color(theme::MUTED),
                         )
                         .wrap(),
                     );
-                    ui.add_space(8.0);
-                    ui.horizontal(|ui| {
-                        if primary_button(ui, "UPDATE NOW", accent, true).clicked() {
+                    ui.add_space(16.0);
+                    centered_buttons(ui, width, &["Update now", "Later"], |ui| {
+                        if primary_button(ui, "Update now", accent, true).clicked() || enter {
                             update = true;
                         }
-                        if secondary_button(ui, "LATER", true).clicked() {
+                        if secondary_button(ui, "Later", true).clicked() {
                             close = true;
                         }
                     });
                 }
                 "busy" => {
-                    ui.label(&modal.text);
-                    if let Some(p) = modal.progress {
-                        ui.add(egui::ProgressBar::new(p as f32).fill(accent));
-                    }
+                    ui.add_space(8.0);
+                    ui.label(RichText::new(&modal.text).color(theme::PARCHMENT_DIM));
+                    ui.add_space(10.0);
+                    ui.add(egui::ProgressBar::new(modal.progress.unwrap_or(0.0) as f32).fill(accent));
+                    ui.add_space(8.0);
                     ui.label(RichText::new("Please do not close Unplug.").color(theme::MUTED).size(12.5));
-                    if secondary_button(ui, "CANCEL", true).clicked() {
-                        modal.cancel.store(true, Ordering::Relaxed);
-                    }
+                    ui.add_space(12.0);
+                    centered_buttons(ui, width, &["Cancel"], |ui| {
+                        if secondary_button(ui, "Cancel", true).clicked() {
+                            modal.cancel.store(true, Ordering::Relaxed);
+                        }
+                    });
                 }
                 _ => {
-                    ui.add(egui::Label::new(&modal.text).wrap());
-                    ui.add_space(8.0);
-                    ui.horizontal(|ui| {
-                        if primary_button(ui, "OPEN THE RELEASE PAGE", accent, true).clicked() {
+                    ui.add_space(16.0);
+                    centered_buttons(ui, width, &["Open the release page", "Close"], |ui| {
+                        if primary_button(ui, "Open the release page", accent, true).clicked() {
                             page = true;
                         }
-                        if secondary_button(ui, "CLOSE", true).clicked() {
+                        if secondary_button(ui, "Close", true).clicked() {
                             close = true;
                         }
                     });
                 }
-            });
+            }
+        });
+        if escape && modal.stage != "busy" {
+            close = true;
+        }
         if update {
             self.run_update();
         }

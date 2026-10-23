@@ -130,3 +130,63 @@ pub fn switch(ui: &mut Ui, on: bool, enabled: bool, chosen: bool, on_color: Colo
         resp
     }
 }
+
+/// A dialog in the launcher's style: the window dimmed behind it, and a near-black card with a white hairline in the middle. Returns true when the
+/// dimmed part was clicked.
+#[allow(deprecated)]
+pub fn dialog(ctx: &egui::Context, id: &str, width: f32, add: impl FnOnce(&mut Ui)) -> bool {
+    let mut outside = false;
+    egui::Area::new(egui::Id::new((id, "scrim")))
+        .order(egui::Order::Middle)
+        .fixed_pos(egui::Pos2::ZERO)
+        .show(ctx, |ui| {
+            let screen = ctx.content_rect();
+            let r = ui.allocate_rect(screen, Sense::click());
+            ui.painter().rect_filled(screen, 0.0, theme::with_alpha(Color32::BLACK, 0.55));
+            outside = r.clicked();
+        });
+    egui::Area::new(egui::Id::new((id, "card")))
+        .order(egui::Order::Foreground)
+        .anchor(egui::Align2::CENTER_CENTER, Vec2::ZERO)
+        .show(ctx, |ui| {
+            egui::Frame::new()
+                .fill(theme::INK)
+                .stroke(Stroke::new(1.0, theme::with_alpha(Color32::WHITE, 0.1)))
+                .corner_radius(CornerRadius::same(16))
+                .inner_margin(egui::Margin::same(28))
+                .show(ui, |ui| {
+                    ui.set_width(width);
+                    ui.vertical_centered(add);
+                });
+        });
+    outside
+}
+
+/// A title and a line under it, centred.
+pub fn dialog_heading(ui: &mut Ui, title: &str, text: &str) {
+    ui.label(egui::RichText::new(title).size(22.0).strong());
+    if !text.is_empty() {
+        ui.add_space(6.0);
+        ui.add(egui::Label::new(egui::RichText::new(text).color(theme::PARCHMENT_DIM)).wrap());
+    }
+}
+
+/// Buttons in a row, centred in a dialog of `width`; `labels` are their texts, so that the row's width is known.
+pub fn centered_buttons(ui: &mut Ui, width: f32, labels: &[&str], add: impl FnOnce(&mut Ui)) {
+    let font = egui::FontId::proportional(13.5);
+    let row: f32 = labels
+        .iter()
+        .map(|s| {
+            ui.painter()
+                .layout_no_wrap(s.to_uppercase(), font.clone(), theme::PARCHMENT)
+                .size()
+                .x
+                + 32.0
+        })
+        .sum::<f32>()
+        + ui.spacing().item_spacing.x * labels.len().saturating_sub(1) as f32;
+    ui.horizontal(|ui| {
+        ui.add_space(((width - row) / 2.0).max(0.0));
+        add(ui);
+    });
+}

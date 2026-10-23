@@ -44,11 +44,13 @@ turning a device off needs them.
 
 ## Usage
 
-Press **Block** on the joystick: it stops being available to every application. Press **Unblock** when you want it back, or **Unblock all**.
+Press the switch on the joystick: it stops being available to every application. Switch it off to get it back, or press **Unblock all**.
 
-- Controllers (joysticks, pads, wheels, throttles, pedals) are listed first. A device that does not look like one asks before it is blocked.
-- A keyboard or a mouse cannot be blocked from here, so the tool cannot lock you out. Hubs are never listed.
-- A blocked device stays blocked after you close the window and after a restart, until you unblock it. Without this tool, open Device Manager,
+- Devices are in categories (Controllers, Keyboards, Mice, Storage, Audio, Cameras, Other), found from what each device says about itself.
+  The **...** menu on a device moves it to another category; the choice is remembered.
+- Unplug stays in the notification area when you close the window. Click its icon to open the window; right-click it for **Unblock all** and **Exit**.
+- A keyboard or a mouse cannot be blocked from here, so the tool cannot lock you out. A device that is not a controller asks before it is blocked.
+- A blocked device stays blocked after you close Unplug and after a restart, until you unblock it. Without this tool, open Device Manager,
   find the device and choose *Enable device*.
 - `unplug --demo` runs the window on a made-up list that changes in memory only.
 

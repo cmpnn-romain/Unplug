@@ -1,5 +1,5 @@
 // Copyright (C) 2026 the Unplug contributors (AUTHORS.md). SPDX-License-Identifier: GPL-3.0-only
-//! What a USB device is to the tool, and the rules that decide how it is shown: the name, the kind, whether it may be blocked.
+//! What a USB device is to the tool, and the rules that decide how it is shown: its name, its category, whether it may be blocked.
 
 /// One USB device as Windows reports it.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -14,16 +14,67 @@ pub struct UsbDevice {
     pub blocked: bool,
 }
 
-/// What kind of device it looks like.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Kind {
+/// What a device is for. The player can move a device to another category.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum Category {
     /// A joystick, pad, wheel, throttle or pedals.
     Controller,
-    /// A keyboard or a mouse: blocking it would lock the player out of the computer.
-    Input,
+    Keyboard,
+    Mouse,
+    Storage,
+    Audio,
+    Camera,
     Other,
 }
 
+impl Category {
+    pub const ALL: [Category; 7] = [
+        Category::Controller,
+        Category::Keyboard,
+        Category::Mouse,
+        Category::Storage,
+        Category::Audio,
+        Category::Camera,
+        Category::Other,
+    ];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Category::Controller => "Controllers",
+            Category::Keyboard => "Keyboards",
+            Category::Mouse => "Mice",
+            Category::Storage => "Storage",
+            Category::Audio => "Audio",
+            Category::Camera => "Cameras",
+            Category::Other => "Other",
+        }
+    }
+
+    /// The word the preferences file uses.
+    pub fn key(self) -> &'static str {
+        match self {
+            Category::Controller => "controller",
+            Category::Keyboard => "keyboard",
+            Category::Mouse => "mouse",
+            Category::Storage => "storage",
+            Category::Audio => "audio",
+            Category::Camera => "camera",
+            Category::Other => "other",
+        }
+    }
+
+    pub fn from_key(key: &str) -> Option<Category> {
+        Category::ALL.into_iter().find(|c| c.key() == key)
+    }
+
+    /// A keyboard or a mouse cannot be blocked: it would lock the player out of the computer.
+    pub fn protected(self) -> bool {
+        matches!(self, Category::Keyboard | Category::Mouse)
+    }
+}
+
+const KEYBOARD_WORDS: &[&str] = &["keyboard", "galleon", "keypad"];
+const MOUSE_WORDS: &[&str] = &["mouse", "trackpad", "touchpad", "touch pad", "trackball"];
 const CONTROLLER_WORDS: &[&str] = &[
     "joystick",
     "gamepad",
@@ -48,8 +99,9 @@ const CONTROLLER_WORDS: &[&str] = &[
     "warthog",
     "stick",
 ];
-
-const INPUT_WORDS: &[&str] = &["keyboard", "mouse", "trackpad", "touchpad", "touch pad"];
+const STORAGE_WORDS: &[&str] = &["storage", "flash", "disk", "drive", "ssd", "card reader"];
+const AUDIO_WORDS: &[&str] = &["audio", "headset", "headphone", "speaker", "microphone", "sound"];
+const CAMERA_WORDS: &[&str] = &["webcam", "camera"];
 
 impl UsbDevice {
     /// `(vendor, product)` read from the instance id, when it has the usual `VID_xxxx&PID_xxxx` form.
@@ -65,6 +117,16 @@ impl UsbDevice {
         self.vid_pid().map(|(v, p)| format!("{v:04X}:{p:04X}")).unwrap_or_default()
     }
 
+    /// What a remembered choice of category is filed under: the vendor and the product, so it holds when the device is plugged elsewhere.
+    pub fn key(&self) -> String {
+        let k = self.vid_pid_text();
+        if k.is_empty() {
+            self.instance_id.to_ascii_uppercase()
+        } else {
+            k
+        }
+    }
+
     /// A hub is the plumbing of the bus, not a device to block.
     pub fn is_hub(&self) -> bool {
         let id = self.instance_id.to_ascii_uppercase();
@@ -76,45 +138,62 @@ impl UsbDevice {
         self.instance_id.to_ascii_uppercase().contains("&MI_")
     }
 
-    pub fn kind(&self) -> Kind {
-        let name = self.name.to_lowercase();
-        // a boot keyboard or mouse is HID class 03, subclass 01, protocol 01 (keyboard) or 02 (mouse)
-        let boot_input = self
-            .ids
-            .iter()
-            .any(|i| i.contains("CLASS_03&SUBCLASS_01&PROT_01") || i.contains("CLASS_03&SUBCLASS_01&PROT_02"));
-        if boot_input || INPUT_WORDS.iter().any(|w| name.contains(w)) {
-            Kind::Input
-        } else if CONTROLLER_WORDS.iter().any(|w| name.contains(w)) {
-            Kind::Controller
-        } else {
-            Kind::Other
-        }
-    }
-
     /// Whether the device is worth listing: not a hub and not an interface of another device.
     pub fn is_listed(&self) -> bool {
         !self.is_hub() && !self.is_interface()
     }
+
+    /// The category the device looks like it belongs to. What it reports about itself (a boot keyboard or mouse, a class) comes before its name.
+    pub fn category(&self) -> Category {
+        let name = self.name.to_lowercase();
+        let has_id = |part: &str| self.ids.iter().any(|i| i.contains(part));
+        let named = |words: &[&str]| words.iter().any(|w| name.contains(w));
+        // a boot keyboard or mouse is HID class 03, subclass 01, protocol 01 (keyboard) or 02 (mouse)
+        if has_id("CLASS_03&SUBCLASS_01&PROT_01") || named(KEYBOARD_WORDS) {
+            Category::Keyboard
+        } else if has_id("CLASS_03&SUBCLASS_01&PROT_02") || named(MOUSE_WORDS) {
+            Category::Mouse
+        } else if named(CONTROLLER_WORDS) {
+            Category::Controller
+        } else if self.ids.iter().any(|i| i.starts_with("USB\\CLASS_08")) || named(STORAGE_WORDS) {
+            Category::Storage
+        } else if self.ids.iter().any(|i| i.starts_with("USB\\CLASS_01")) || named(AUDIO_WORDS) {
+            Category::Audio
+        } else if self.ids.iter().any(|i| i.starts_with("USB\\CLASS_0E")) || named(CAMERA_WORDS) {
+            Category::Camera
+        } else {
+            Category::Other
+        }
+    }
 }
 
-/// The devices to show: controllers first, then the rest by name; `query` keeps those whose name, maker or ids contain it, and
-/// `controllers_only` drops everything that does not look like a controller.
-pub fn visible<'a>(devices: &'a [UsbDevice], query: &str, controllers_only: bool) -> Vec<&'a UsbDevice> {
-    let q = query.trim().to_lowercase();
-    let mut shown: Vec<&UsbDevice> = devices
+/// The devices to list. A composite device (a keyboard with a screen, a headset with buttons) is several interfaces under one device: what the
+/// interfaces say about themselves is added to the device, then the interfaces and the hubs are dropped. Sorted by name.
+pub fn group(all: Vec<UsbDevice>) -> Vec<UsbDevice> {
+    let interfaces: Vec<(String, Vec<String>)> = all
         .iter()
-        .filter(|d| d.is_listed())
-        .filter(|d| !controllers_only || d.kind() == Kind::Controller)
-        .filter(|d| {
-            q.is_empty()
-                || d.name.to_lowercase().contains(&q)
-                || d.manufacturer.to_lowercase().contains(&q)
-                || d.vid_pid_text().to_lowercase().contains(&q)
+        .filter(|d| d.is_interface())
+        .filter_map(|d| {
+            let id = d.instance_id.to_ascii_uppercase();
+            let parent = id.split("&MI_").next()?.to_string();
+            Some((parent, d.ids.clone()))
         })
         .collect();
-    shown.sort_by_key(|d| (d.kind() != Kind::Controller, d.name.to_lowercase(), d.instance_id.clone()));
-    shown
+    let mut listed: Vec<UsbDevice> = all.into_iter().filter(UsbDevice::is_listed).collect();
+    for d in &mut listed {
+        let id = d.instance_id.to_ascii_uppercase();
+        for (parent, ids) in &interfaces {
+            if id.starts_with(&format!("{parent}\\")) {
+                for i in ids {
+                    if !d.ids.contains(i) {
+                        d.ids.push(i.clone());
+                    }
+                }
+            }
+        }
+    }
+    listed.sort_by_key(|d| (d.name.to_lowercase(), d.instance_id.clone()));
+    listed
 }
 
 #[cfg(test)]
@@ -136,8 +215,9 @@ mod tests {
         let d = device(r"USB\VID_046d&PID_c215\5&2A1B&0&2", "Extreme 3D", &[]);
         assert_eq!(d.vid_pid(), Some((0x046D, 0xC215)));
         assert_eq!(d.vid_pid_text(), "046D:C215");
+        assert_eq!(d.key(), "046D:C215");
         assert_eq!(device(r"USB\ROOT_HUB30\4&1", "Root", &[]).vid_pid(), None);
-        assert_eq!(device(r"USB\VID_04", "Short", &[]).vid_pid(), None);
+        assert_eq!(device(r"USB\VID_04", "Short", &[]).key(), r"USB\VID_04");
     }
 
     #[test]
@@ -151,33 +231,55 @@ mod tests {
     }
 
     #[test]
-    fn a_keyboard_or_a_mouse_is_never_taken_for_a_controller() {
+    fn a_device_is_filed_by_what_it_reports_then_by_its_name() {
         let boot = device(r"USB\VID_1&PID_2\1", "USB Input Device", &["USB\\CLASS_03&SUBCLASS_01&PROT_01"]);
-        assert_eq!(boot.kind(), Kind::Input);
-        assert_eq!(device(r"USB\VID_1&PID_2\1", "Gaming Mouse", &[]).kind(), Kind::Input);
-        assert_eq!(
-            device(r"USB\VID_1&PID_2\1", "Thrustmaster T.16000M FCS", &[]).kind(),
-            Kind::Controller
-        );
-        assert_eq!(
-            device(r"USB\VID_1&PID_2\1", "Controller (XBOX 360 For Windows)", &[]).kind(),
-            Kind::Controller
-        );
-        assert_eq!(device(r"USB\VID_1&PID_2\1", "USB Mass Storage", &[]).kind(), Kind::Other);
+        assert_eq!(boot.category(), Category::Keyboard);
+        let mouse = device(r"USB\VID_1&PID_2\1", "USB Input Device", &["USB\\CLASS_03&SUBCLASS_01&PROT_02"]);
+        assert_eq!(mouse.category(), Category::Mouse);
+        let cat = |name: &str, ids: &[&str]| device(r"USB\VID_1&PID_2\1", name, ids).category();
+        assert_eq!(cat("Gaming Mouse", &[]), Category::Mouse);
+        assert_eq!(cat("CORSAIR GALLEON 100 SD", &[]), Category::Keyboard);
+        assert_eq!(cat("Thrustmaster T.16000M FCS", &[]), Category::Controller);
+        assert_eq!(cat("Controller (XBOX 360 For Windows)", &[]), Category::Controller);
+        assert_eq!(cat("USB Mass Storage Device", &[]), Category::Storage);
+        assert_eq!(cat("USB Device", &["USB\\CLASS_08&SUBCLASS_06"]), Category::Storage);
+        assert_eq!(cat("USB Device", &["USB\\CLASS_01&SUBCLASS_01"]), Category::Audio);
+        assert_eq!(cat("Integrated Webcam", &[]), Category::Camera);
+        assert_eq!(cat("USB Composite Device", &[]), Category::Other);
     }
 
     #[test]
-    fn controllers_come_first_and_the_search_narrows_the_list() {
-        let list = vec![
-            device(r"USB\VID_0001&PID_0001\1", "Webcam", &[]),
-            device(r"USB\VID_0002&PID_0002\1", "Flight Stick", &[]),
+    fn a_composite_keyboard_is_a_keyboard_whatever_it_is_called() {
+        // a keyboard with a screen: the device is "USB Composite Device", its first interface is the keyboard
+        let all = vec![
+            device(r"USB\VID_1B1C&PID_0001\ABC", "USB Composite Device", &["USB\\COMPOSITE"]),
+            device(
+                r"USB\VID_1B1C&PID_0001&MI_00\6&1",
+                "USB Input Device",
+                &["USB\\CLASS_03&SUBCLASS_01&PROT_01"],
+            ),
+            device(
+                r"USB\VID_1B1C&PID_0001&MI_01\6&2",
+                "USB Input Device",
+                &["USB\\CLASS_03&SUBCLASS_00"],
+            ),
+            device(r"USB\VID_0002&PID_0002\XYZ", "Flight Stick", &[]),
             device(r"USB\ROOT_HUB30\1", "USB Root Hub", &[]),
-            device(r"USB\VID_0003&PID_0003&MI_00\1", "Flight Stick (interface)", &[]),
         ];
-        let names = |v: Vec<&UsbDevice>| v.iter().map(|d| d.name.clone()).collect::<Vec<_>>();
-        assert_eq!(names(visible(&list, "", false)), ["Flight Stick", "Webcam"]);
-        assert_eq!(names(visible(&list, "", true)), ["Flight Stick"]);
-        assert_eq!(names(visible(&list, "cam", false)), ["Webcam"]);
-        assert_eq!(names(visible(&list, "0002:0002", false)), ["Flight Stick"]);
+        let listed = group(all);
+        let names: Vec<_> = listed.iter().map(|d| d.name.as_str()).collect();
+        assert_eq!(names, ["Flight Stick", "USB Composite Device"]);
+        assert_eq!(listed[1].category(), Category::Keyboard);
+        assert!(listed[1].category().protected());
+        assert_eq!(listed[0].category(), Category::Controller);
+    }
+
+    #[test]
+    fn categories_are_read_back_from_their_keys() {
+        for c in Category::ALL {
+            assert_eq!(Category::from_key(c.key()), Some(c));
+        }
+        assert_eq!(Category::from_key("nope"), None);
+        assert!(Category::Keyboard.protected() && Category::Mouse.protected() && !Category::Controller.protected());
     }
 }

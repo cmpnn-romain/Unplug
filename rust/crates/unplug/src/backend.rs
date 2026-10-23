@@ -59,10 +59,17 @@ impl Demo {
                 &[],
             ),
             d(r"USB\VID_231D&PID_0136\6&1A2B&0&4", "VKB Gladiator NXT EVO", "VKB-Sim", &[]),
+            // a keyboard that reports itself as a composite device; only its interface says it is a keyboard
             d(
-                r"USB\VID_046D&PID_C31C\6&1A2B&0&5",
-                "USB Keyboard",
-                "Logitech",
+                r"USB\VID_1B1C&PID_2B01\6&1A2B&0&5",
+                "USB Composite Device",
+                "Corsair",
+                &["USB\\COMPOSITE"],
+            ),
+            d(
+                r"USB\VID_1B1C&PID_2B01&MI_00\7&1&0&0000",
+                "USB Input Device",
+                "",
                 &["USB\\CLASS_03&SUBCLASS_01&PROT_01"],
             ),
             d(
@@ -71,8 +78,19 @@ impl Demo {
                 "Logitech",
                 &["USB\\CLASS_03&SUBCLASS_01&PROT_02"],
             ),
-            d(r"USB\VID_0781&PID_5581\6&1A2B&0&7", "SanDisk Ultra", "SanDisk", &[]),
+            d(
+                r"USB\VID_0781&PID_5581\6&1A2B&0&7",
+                "SanDisk Ultra",
+                "SanDisk",
+                &["USB\\CLASS_08&SUBCLASS_06"],
+            ),
             d(r"USB\VID_0C45&PID_6366\6&1A2B&0&8", "Integrated Webcam", "Sonix", &[]),
+            d(
+                r"USB\VID_1532&PID_0521\6&1A2B&0&9",
+                "USB Headset",
+                "Razer",
+                &["USB\\CLASS_01&SUBCLASS_01"],
+            ),
         ]))
     }
 }

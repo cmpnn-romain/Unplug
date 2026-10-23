@@ -1,7 +1,8 @@
 // Copyright (C) 2026 the Unplug contributors (AUTHORS.md). SPDX-License-Identifier: GPL-3.0-only
 //! Development aids: with `UNPLUG_SCREENSHOT=<file>` the window saves a picture of itself after a few seconds and closes, so the window can be
-//! looked at without a person. Nothing happens without the variable.
+//! looked at without a person; `UNPLUG_TAB=<category>` opens that tab. Nothing happens without the variables.
 
+use crate::device::Category;
 use eframe::egui::{self, ViewportCommand};
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -28,4 +29,12 @@ pub fn screenshot_tick(ctx: &egui::Context) {
             done.request_repaint();
         })));
     }
+}
+
+/// The tab to start on: the one `UNPLUG_TAB` names, else the controllers.
+pub fn start_tab() -> Category {
+    std::env::var("UNPLUG_TAB")
+        .ok()
+        .and_then(|k| Category::from_key(&k))
+        .unwrap_or(Category::Controller)
 }

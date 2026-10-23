@@ -5,7 +5,9 @@ pub mod app;
 pub mod backend;
 pub mod dev;
 pub mod device;
+pub mod prefs;
 pub mod ui;
+pub mod winapi;
 
 /// The release number, read from the repository's `VERSION` file at build time.
 pub const VERSION: &str = env!("UNPLUG_VERSION");

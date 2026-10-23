@@ -312,11 +312,7 @@ impl UsbApp {
             .exact_size(34.0)
             .frame(egui::Frame::new().fill(theme::GROUND).inner_margin(egui::Margin::symmetric(24, 8)))
             .show(ui, |ui| {
-                ui.label(
-                    RichText::new("Left Right  category     Up Down  device     Space  switch     Ctrl+U  unblock all")
-                        .size(12.0)
-                        .color(theme::MUTED_DIM),
-                );
+                ui.label(RichText::new("Ctrl+U  unblock all").size(12.0).color(theme::MUTED_DIM));
             });
         egui::CentralPanel::default()
             .frame(egui::Frame::new().fill(theme::GROUND).inner_margin(egui::Margin::symmetric(24, 20)))
@@ -384,13 +380,7 @@ impl UsbApp {
         );
         if selected {
             ui.painter()
-                .rect_filled(band, CornerRadius::same(10), theme::with_alpha(theme::ACCENT, 0.08));
-            ui.painter().rect_stroke(
-                band,
-                CornerRadius::same(10),
-                Stroke::new(1.0, theme::with_alpha(theme::ACCENT, 0.4)),
-                egui::StrokeKind::Inside,
-            );
+                .rect_filled(band, CornerRadius::same(10), theme::with_alpha(egui::Color32::WHITE, 0.06));
             if self.scroll_to_selected {
                 ui.scroll_to_rect(band, None);
             }
@@ -415,16 +405,8 @@ impl UsbApp {
                 }
                 let font = egui::FontId::proportional(12.5);
                 let mut job = egui::text::LayoutJob::default();
-                if d.blocked {
-                    job.append("Blocked", 0.0, egui::TextFormat::simple(font.clone(), theme::DANGER_BRIGHT));
-                }
                 if !sub.is_empty() {
-                    let sep = if d.blocked { "  \u{b7}  " } else { "" };
-                    job.append(
-                        &format!("{sep}{}", sub.join("  \u{b7}  ")),
-                        0.0,
-                        egui::TextFormat::simple(font, theme::MUTED),
-                    );
+                    job.append(&sub.join("  \u{b7}  "), 0.0, egui::TextFormat::simple(font, theme::MUTED));
                 }
                 ui.add(egui::Label::new(job).truncate());
             });

@@ -35,6 +35,10 @@ mod other {
         }
     }
     pub fn show_window() {}
+    /// False: nothing was hidden (the caller hides the window itself).
+    pub fn hide_window() -> bool {
+        false
+    }
     pub fn already_running(_wait: bool) -> bool {
         false
     }
@@ -72,15 +76,29 @@ mod imp {
         }
     }
 
+    /// The tool's window: the toolkit's window class and the title, so that a folder or a page that happens to be called Unplug is not taken for it.
+    unsafe fn find_window() -> HWND {
+        FindWindowW(wide("Window Class").as_ptr(), wide(WINDOW_TITLE).as_ptr())
+    }
+
     /// Brings the window back from the tray (it was hidden when it was closed) and to the front.
     pub fn show_window() {
         unsafe {
-            let hwnd = FindWindowW(null(), wide(WINDOW_TITLE).as_ptr());
+            let hwnd = find_window();
             if !hwnd.is_null() {
                 ShowWindow(hwnd, SW_SHOW);
                 ShowWindow(hwnd, SW_RESTORE);
                 SetForegroundWindow(hwnd);
             }
+        }
+    }
+
+    /// Hides the window to the tray. It is hidden the way it is shown again: through Windows and not through the toolkit, which would go on thinking
+    /// the window is hidden after the tray showed it, and ignore the next time it is asked to hide it.
+    pub fn hide_window() -> bool {
+        unsafe {
+            let hwnd = find_window();
+            !hwnd.is_null() && ShowWindow(hwnd, SW_HIDE) != -1
         }
     }
 

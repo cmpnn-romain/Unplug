@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  version-policy:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Versioning policy
+        shell: pwsh
+        run: ./tools/Test-VersionPolicy.ps1
+
+  rust:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: rust
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with: { components: "clippy, rustfmt" }
+      - uses: Swatinem/rust-cache@v2
+        with: { workspaces: rust }
+      - name: Format
+        run: cargo fmt --check
+      - name: Lints
+        run: cargo clippy --all-targets -- -D warnings
+      - name: Tests
+        run: cargo test
+
+  exe:
+    runs-on: windows-latest
+    needs: [rust]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with: { workspaces: rust }
+      - name: The exe builds (nothing is published)
+        shell: pwsh
+        run: |
+          ./tools/Build-Release.ps1 -SkipGates
+          $v = (Get-Content VERSION -TotalCount 1).Trim()
+          if (-not (Test-Path "release/Unplug-$v.exe")) { throw "exe missing" }

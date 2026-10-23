@@ -1,0 +1,7 @@
+# Build output
+target/
+release/
+
+# Local notes and tool state
+.claude
+memory.md

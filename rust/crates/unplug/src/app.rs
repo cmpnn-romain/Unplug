@@ -318,7 +318,6 @@ impl UsbApp {
             .frame(egui::Frame::new().fill(theme::GROUND).inner_margin(egui::Margin::symmetric(24, 20)))
             .show(ui, |ui| {
                 ui.horizontal(|ui| {
-                    ui.label(RichText::new("Unplug").size(24.0).strong());
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                         if self.blocked_count() > 0 && quiet_link(ui, "Unblock all", true).clicked() {
                             self.unblock_all();

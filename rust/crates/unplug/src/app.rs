@@ -6,7 +6,7 @@ use crate::backend::Backend;
 use crate::device::{self, Category, UsbDevice};
 use crate::http::Http;
 use crate::ui::theme;
-use crate::ui::widgets::{primary_button, quiet_link, secondary_button, switch, tab};
+use crate::ui::widgets::{primary_button, secondary_button, switch, tab};
 use crate::update_check::{Check, UpdateInfo};
 use crate::winapi::TrayEvent;
 use eframe::egui::{self, Align, CornerRadius, Layout, RichText, Stroke};
@@ -235,7 +235,8 @@ impl UsbApp {
         }
     }
 
-    /// Whether any device is turned off.
+    /// How many devices are turned off.
+    #[cfg(test)]
     fn blocked_count(&self) -> usize {
         self.devices.iter().filter(|d| d.blocked).count()
     }
@@ -317,14 +318,6 @@ impl UsbApp {
         egui::CentralPanel::default()
             .frame(egui::Frame::new().fill(theme::GROUND).inner_margin(egui::Margin::symmetric(24, 20)))
             .show(ui, |ui| {
-                ui.horizontal(|ui| {
-                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                        if self.blocked_count() > 0 && quiet_link(ui, "Unblock all", true).clicked() {
-                            self.unblock_all();
-                        }
-                    });
-                });
-                ui.add_space(4.0);
                 if let Some(e) = self.error.clone() {
                     ui.add(egui::Label::new(RichText::new(e).size(12.5).color(theme::WARN)).wrap());
                     ui.add_space(4.0);

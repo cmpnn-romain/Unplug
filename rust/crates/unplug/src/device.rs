@@ -19,8 +19,8 @@ pub struct UsbDevice {
 pub enum Category {
     /// A joystick, pad, wheel, throttle or pedals.
     Controller,
-    Keyboard,
-    Mouse,
+    /// A keyboard or a mouse: what the player needs to use the computer.
+    Essential,
     Storage,
     Audio,
     Camera,
@@ -28,10 +28,9 @@ pub enum Category {
 }
 
 impl Category {
-    pub const ALL: [Category; 7] = [
+    pub const ALL: [Category; 6] = [
         Category::Controller,
-        Category::Keyboard,
-        Category::Mouse,
+        Category::Essential,
         Category::Storage,
         Category::Audio,
         Category::Camera,
@@ -41,8 +40,7 @@ impl Category {
     pub fn label(self) -> &'static str {
         match self {
             Category::Controller => "Controllers",
-            Category::Keyboard => "Keyboards",
-            Category::Mouse => "Mice",
+            Category::Essential => "Essentials",
             Category::Storage => "Storage",
             Category::Audio => "Audio",
             Category::Camera => "Cameras",
@@ -52,7 +50,7 @@ impl Category {
 
     /// A keyboard or a mouse cannot be blocked: it would lock the player out of the computer.
     pub fn protected(self) -> bool {
-        matches!(self, Category::Keyboard | Category::Mouse)
+        self == Category::Essential
     }
 }
 
@@ -122,10 +120,8 @@ impl UsbDevice {
         let has_id = |part: &str| self.ids.iter().any(|i| i.contains(part));
         let named = |words: &[&str]| words.iter().any(|w| name.contains(w));
         // a boot keyboard or mouse is HID class 03, subclass 01, protocol 01 (keyboard) or 02 (mouse)
-        if has_id("CLASS_03&SUBCLASS_01&PROT_01") || named(KEYBOARD_WORDS) {
-            Category::Keyboard
-        } else if has_id("CLASS_03&SUBCLASS_01&PROT_02") || named(MOUSE_WORDS) {
-            Category::Mouse
+        if has_id("CLASS_03&SUBCLASS_01&PROT_01") || has_id("CLASS_03&SUBCLASS_01&PROT_02") || named(KEYBOARD_WORDS) || named(MOUSE_WORDS) {
+            Category::Essential
         } else if named(CONTROLLER_WORDS) {
             Category::Controller
         } else if self.ids.iter().any(|i| i.starts_with("USB\\CLASS_08")) || named(STORAGE_WORDS) {
@@ -204,12 +200,12 @@ mod tests {
     #[test]
     fn a_device_is_filed_by_what_it_reports_then_by_its_name() {
         let boot = device(r"USB\VID_1&PID_2\1", "USB Input Device", &["USB\\CLASS_03&SUBCLASS_01&PROT_01"]);
-        assert_eq!(boot.category(), Category::Keyboard);
+        assert_eq!(boot.category(), Category::Essential);
         let mouse = device(r"USB\VID_1&PID_2\1", "USB Input Device", &["USB\\CLASS_03&SUBCLASS_01&PROT_02"]);
-        assert_eq!(mouse.category(), Category::Mouse);
+        assert_eq!(mouse.category(), Category::Essential);
         let cat = |name: &str, ids: &[&str]| device(r"USB\VID_1&PID_2\1", name, ids).category();
-        assert_eq!(cat("Gaming Mouse", &[]), Category::Mouse);
-        assert_eq!(cat("CORSAIR GALLEON 100 SD", &[]), Category::Keyboard);
+        assert_eq!(cat("Gaming Mouse", &[]), Category::Essential);
+        assert_eq!(cat("CORSAIR GALLEON 100 SD", &[]), Category::Essential);
         assert_eq!(cat("Thrustmaster T.16000M FCS", &[]), Category::Controller);
         assert_eq!(cat("Controller (XBOX 360 For Windows)", &[]), Category::Controller);
         assert_eq!(cat("USB Mass Storage Device", &[]), Category::Storage);
@@ -240,14 +236,14 @@ mod tests {
         let listed = group(all);
         let names: Vec<_> = listed.iter().map(|d| d.name.as_str()).collect();
         assert_eq!(names, ["Flight Stick", "USB Composite Device"]);
-        assert_eq!(listed[1].category(), Category::Keyboard);
+        assert_eq!(listed[1].category(), Category::Essential);
         assert!(listed[1].category().protected());
         assert_eq!(listed[0].category(), Category::Controller);
     }
 
     #[test]
     fn only_a_keyboard_or_a_mouse_is_protected() {
-        assert!(Category::Keyboard.protected() && Category::Mouse.protected());
+        assert!(Category::Essential.protected() && Category::Essential.protected());
         assert!(!Category::Controller.protected() && !Category::Other.protected());
     }
 }

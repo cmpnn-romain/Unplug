@@ -308,7 +308,7 @@ impl UsbApp {
             self.unblock_all();
         }
         if hide {
-            ctx.send_viewport_cmd(egui::ViewportCommand::Visible(false));
+            hide_window(ctx);
         }
     }
 
@@ -462,13 +462,20 @@ impl UsbApp {
     }
 }
 
+/// Hides the window: Unplug goes on in the tray.
+fn hide_window(ctx: &egui::Context) {
+    if !crate::winapi::hide_window() {
+        ctx.send_viewport_cmd(egui::ViewportCommand::Visible(false));
+    }
+}
+
 impl eframe::App for UsbApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         let ctx = ui.ctx().clone();
         // the close button hides the window: Unplug goes on in the tray (the tray's Exit ends it)
         if ctx.input(|i| i.viewport().close_requested()) {
             ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
-            ctx.send_viewport_cmd(egui::ViewportCommand::Visible(false));
+            hide_window(&ctx);
         }
         self.receive();
         self.tray_requests();

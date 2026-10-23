@@ -6,10 +6,10 @@ use crate::backend::Backend;
 use crate::device::{self, Category, UsbDevice};
 use crate::http::Http;
 use crate::ui::theme;
-use crate::ui::widgets::{primary_button, secondary_button, switch, tab};
+use crate::ui::widgets::{centered_buttons, dialog, dialog_heading, primary_button, secondary_button, switch, tab};
 use crate::update_check::{Check, UpdateInfo};
 use crate::winapi::TrayEvent;
-use eframe::egui::{self, Align, CornerRadius, Layout, RichText, Stroke};
+use eframe::egui::{self, Align, Layout, RichText, Stroke};
 use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::atomic::AtomicBool;
@@ -100,6 +100,10 @@ impl UsbApp {
             working: HashSet::new(),
             confirm: None,
         };
+        if let Some((stage, info)) = crate::dev::start_modal() {
+            app.update = info;
+            app.open_update_modal(&stage, "The update could not be installed.");
+        }
         app.refresh();
         app
     }
@@ -426,41 +430,33 @@ impl UsbApp {
             self.confirm = None;
             return;
         };
+        let width = 360.0;
         let mut block = ctx.input(|i| i.key_pressed(egui::Key::Enter));
-        let mut cancel = false;
-        egui::Window::new("Block this device?")
-            .title_bar(false)
-            .collapsible(false)
-            .resizable(false)
-            .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0.0, 0.0))
-            .frame(
-                egui::Frame::new()
-                    .fill(theme::OAK)
-                    .stroke(Stroke::new(1.0, theme::OAK_LIT))
-                    .corner_radius(CornerRadius::same(12))
-                    .inner_margin(egui::Margin::same(20)),
-            )
-            .show(ctx, |ui| {
-                ui.set_width(340.0);
-                ui.label(RichText::new(&d.name).size(16.0).strong());
-                ui.add_space(4.0);
-                ui.add(
-                    egui::Label::new(
-                        RichText::new("This does not look like a joystick or a pad. Blocked, it stops working for every application until you unblock it.")
-                            .color(theme::PARCHMENT_DIM),
+        let mut cancel = ctx.input(|i| i.key_pressed(egui::Key::Escape));
+        let outside = dialog(ctx, "block", width, |ui| {
+            dialog_heading(ui, "Block this device?", "");
+            ui.add_space(6.0);
+            ui.add(egui::Label::new(RichText::new(&d.name).strong()).truncate());
+            ui.add_space(6.0);
+            ui.add(
+                egui::Label::new(
+                    RichText::new(
+                        "It does not look like a joystick or a pad. Blocked, it stops working for every application until you unblock it.",
                     )
-                    .wrap(),
-                );
-                ui.add_space(10.0);
-                ui.horizontal(|ui| {
-                    block |= primary_button(ui, "Block it", theme::ACCENT, true).clicked();
-                    cancel = secondary_button(ui, "Cancel", true).clicked();
-                });
+                    .color(theme::PARCHMENT_DIM),
+                )
+                .wrap(),
+            );
+            ui.add_space(16.0);
+            centered_buttons(ui, width, &["Block it", "Cancel"], |ui| {
+                block |= primary_button(ui, "Block it", theme::ACCENT, true).clicked();
+                cancel |= secondary_button(ui, "Cancel", true).clicked();
             });
+        });
         if block {
             self.set_blocked(&id, true);
             self.confirm = None;
-        } else if cancel || ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
+        } else if cancel || outside {
             self.confirm = None;
         }
     }

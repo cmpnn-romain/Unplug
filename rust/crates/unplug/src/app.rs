@@ -378,12 +378,8 @@ impl UsbApp {
             egui::pos2(ui.max_rect().left() - 8.0, top),
             egui::vec2(ui.max_rect().width() + 16.0, HEIGHT),
         );
-        if selected {
-            ui.painter()
-                .rect_filled(band, CornerRadius::same(10), theme::with_alpha(egui::Color32::WHITE, 0.06));
-            if self.scroll_to_selected {
-                ui.scroll_to_rect(band, None);
-            }
+        if selected && self.scroll_to_selected {
+            ui.scroll_to_rect(band, None);
         }
         ui.horizontal(|ui| {
             ui.set_min_height(HEIGHT);
@@ -413,11 +409,11 @@ impl UsbApp {
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                 // on: the device works; off: it is blocked
                 let clickable = !working && !(protected && !d.blocked);
-                let resp = switch(ui, !d.blocked, clickable, theme::ONLINE, theme::BLOOD);
+                let resp = switch(ui, !d.blocked, clickable, selected, theme::ONLINE, theme::BLOOD);
                 if protected && !d.blocked {
                     resp.on_hover_text("A keyboard or a mouse cannot be blocked: you would be left without it.");
                 } else if resp.clicked() {
-                    self.selected = Some(d.instance_id.clone());
+                    self.selected = None;
                     self.toggle(d);
                 }
             });

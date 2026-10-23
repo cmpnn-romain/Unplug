@@ -96,8 +96,8 @@ pub fn tab(ui: &mut Ui, text: &str, active: bool, accent: Color32) -> Response {
     resp.on_hover_cursor(egui::CursorIcon::PointingHand)
 }
 
-/// A switch: `on_color` when it is on, `off_color` when it is off. Not clickable when `enabled` is false.
-pub fn switch(ui: &mut Ui, on: bool, enabled: bool, on_color: Color32, off_color: Color32) -> Response {
+/// A switch: `on_color` when it is on, `off_color` when it is off. Not clickable when `enabled` is false; `chosen` (by the keyboard) draws a ring.
+pub fn switch(ui: &mut Ui, on: bool, enabled: bool, chosen: bool, on_color: Color32, off_color: Color32) -> Response {
     let (rect, resp) = ui.allocate_exact_size(Vec2::new(42.0, 24.0), if enabled { Sense::click() } else { Sense::hover() });
     let fade = if enabled { 1.0 } else { 0.4 };
     ui.painter().rect_filled(
@@ -108,6 +108,14 @@ pub fn switch(ui: &mut Ui, on: bool, enabled: bool, on_color: Color32, off_color
     let x = ui.ctx().animate_value_with_time(resp.id, if on { 1.0 } else { 0.0 }, 0.12);
     let knob = egui::pos2(rect.left() + 12.0 + x * (rect.width() - 24.0), rect.center().y);
     ui.painter().circle_filled(knob, 8.5, theme::with_alpha(theme::PARCHMENT, fade));
+    if chosen {
+        ui.painter().rect_stroke(
+            rect.expand(3.0),
+            CornerRadius::same(255),
+            Stroke::new(1.5, theme::with_alpha(Color32::WHITE, 0.7)),
+            egui::StrokeKind::Outside,
+        );
+    }
     if enabled && resp.hovered() {
         ui.painter().rect_stroke(
             rect,

@@ -44,12 +44,15 @@ turning a device off needs them.
 
 ## Usage
 
-Press the switch on the joystick: it stops being available to every application. Switch it off to get it back, or press **Unblock all**.
+Each device has a switch: green is on (the device works), red is off (blocked, no application can read it). **Unblock all** puts every device back.
 
 - Devices are in categories (Controllers, Keyboards, Mice, Storage, Audio, Cameras, Other), found from what each device says about itself.
-  The **...** menu on a device moves it to another category; the choice is remembered.
-- Unplug stays in the notification area when you close the window. Click its icon to open the window; right-click it for **Unblock all** and **Exit**.
+- Everything can be done from the keyboard, for when the mouse is one of the devices: **Left** and **Right** choose the category, **Up** and
+  **Down** the device, **Space** switches it, **Ctrl+U** unblocks all, **Esc** hides the window.
+- Unplug stays in the notification area when you close the window. Click its icon to open the window; right-click it for **Unblock all**,
+  **Check for updates** and **Exit**.
 - A keyboard or a mouse cannot be blocked from here, so the tool cannot lock you out. A device that is not a controller asks before it is blocked.
+- Unplug looks for a newer release when it starts and offers to install it; it checks the download against the checksum GitHub lists for it.
 - A blocked device stays blocked after you close Unplug and after a restart, until you unblock it. Without this tool, open Device Manager,
   find the device and choose *Enable device*.
 - `unplug --demo` runs the window on a made-up list that changes in memory only.

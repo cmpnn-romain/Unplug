@@ -8,6 +8,7 @@ use std::sync::Arc;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TrayEvent {
     Open,
+    CheckUpdates,
     UnblockAll,
     Exit,
 }
@@ -34,7 +35,7 @@ mod other {
         }
     }
     pub fn show_window() {}
-    pub fn already_running() -> bool {
+    pub fn already_running(_wait: bool) -> bool {
         false
     }
 }
@@ -45,7 +46,8 @@ mod imp {
     use std::ptr::{null, null_mut};
     use std::sync::atomic::{AtomicU32, Ordering};
     use std::sync::Mutex;
-    use windows_sys::Win32::Foundation::{GetLastError, ERROR_ALREADY_EXISTS, HWND, LPARAM, LRESULT, POINT, RECT, WPARAM};
+    use std::time::{Duration, Instant};
+    use windows_sys::Win32::Foundation::{CloseHandle, GetLastError, ERROR_ALREADY_EXISTS, HWND, LPARAM, LRESULT, POINT, RECT, WPARAM};
     use windows_sys::Win32::Graphics::Gdi::{
         CreateFontW, CreateSolidBrush, DeleteObject, DrawTextW, FillRect, GetDC, GetDeviceCaps, GetStockObject, ReleaseDC, RoundRect,
         SelectObject, SetBkMode, SetTextColor, DT_LEFT, DT_SINGLELINE, DT_VCENTER, LOGPIXELSY, NULL_PEN,
@@ -79,23 +81,32 @@ mod imp {
         }
     }
 
-    /// True when another copy is running: it is brought to the front and this one should end.
-    pub fn already_running() -> bool {
-        unsafe {
-            // the handle stays open until the process ends, which is what makes the name taken
-            CreateMutexW(null(), 0, wide("Local\\Unplug-single-instance").as_ptr());
-            if GetLastError() == ERROR_ALREADY_EXISTS {
-                show_window();
-                return true;
+    /// True when another copy is running: it is brought to the front and this one should end. `wait` is for a copy started by an update: the one that
+    /// started it is still ending, so it is given a few seconds to let go before the other is taken for a second copy.
+    pub fn already_running(wait: bool) -> bool {
+        let deadline = Instant::now() + Duration::from_secs(8);
+        loop {
+            unsafe {
+                let handle = CreateMutexW(null(), 0, wide("Local\\Unplug-single-instance").as_ptr());
+                if GetLastError() != ERROR_ALREADY_EXISTS {
+                    // the handle stays open until the process ends, which is what makes the name taken
+                    return false;
+                }
+                CloseHandle(handle);
+                if !wait || Instant::now() >= deadline {
+                    show_window();
+                    return true;
+                }
             }
+            std::thread::sleep(Duration::from_millis(200));
         }
-        false
     }
 
     const CALLBACK: u32 = WM_APP + 1;
     const CMD_OPEN: usize = 1;
     const CMD_UNBLOCK: usize = 2;
-    const CMD_EXIT: usize = 3;
+    const CMD_UPDATES: usize = 3;
+    const CMD_EXIT: usize = 4;
 
     /// How a menu row is drawn: the menu is owner-drawn so it wears the launcher's colours, not the system's.
     #[derive(Clone, Copy, PartialEq)]
@@ -106,15 +117,16 @@ mod imp {
     }
 
     /// The tray menu, top to bottom: (command, text, how it is drawn).
-    const MENU: [(usize, &str, Row); 4] = [
+    const MENU: [(usize, &str, Row); 5] = [
         (CMD_OPEN, "Open Unplug", Row::Item),
         (CMD_UNBLOCK, "Unblock all", Row::Item),
+        (CMD_UPDATES, "Check for updates", Row::Item),
         (0, "", Row::Line),
         (CMD_EXIT, "Exit", Row::Danger),
     ];
 
     const ODS_SELECTED: u32 = 1;
-    const MENU_WIDTH: i32 = 168;
+    const MENU_WIDTH: i32 = 184;
 
     /// A colour as the GDI wants it (blue, green, red).
     const fn rgb(r: u8, g: u8, b: u8) -> u32 {
@@ -258,6 +270,7 @@ mod imp {
                     match cmd as usize {
                         CMD_OPEN => send(TrayEvent::Open),
                         CMD_UNBLOCK => send(TrayEvent::UnblockAll),
+                        CMD_UPDATES => send(TrayEvent::CheckUpdates),
                         CMD_EXIT => {
                             // the icon goes first, or it stays in the tray until the mouse passes over it
                             Shell_NotifyIconW(NIM_DELETE, &data(hwnd));

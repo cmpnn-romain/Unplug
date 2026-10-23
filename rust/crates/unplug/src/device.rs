@@ -14,7 +14,7 @@ pub struct UsbDevice {
     pub blocked: bool,
 }
 
-/// What a device is for. The player can move a device to another category.
+/// What a device is for, found from what it says about itself.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Category {
     /// A joystick, pad, wheel, throttle or pedals.
@@ -48,23 +48,6 @@ impl Category {
             Category::Camera => "Cameras",
             Category::Other => "Other",
         }
-    }
-
-    /// The word the preferences file uses.
-    pub fn key(self) -> &'static str {
-        match self {
-            Category::Controller => "controller",
-            Category::Keyboard => "keyboard",
-            Category::Mouse => "mouse",
-            Category::Storage => "storage",
-            Category::Audio => "audio",
-            Category::Camera => "camera",
-            Category::Other => "other",
-        }
-    }
-
-    pub fn from_key(key: &str) -> Option<Category> {
-        Category::ALL.into_iter().find(|c| c.key() == key)
     }
 
     /// A keyboard or a mouse cannot be blocked: it would lock the player out of the computer.
@@ -115,16 +98,6 @@ impl UsbDevice {
     /// `046D:C215`, or an empty string for a device without a vendor and a product.
     pub fn vid_pid_text(&self) -> String {
         self.vid_pid().map(|(v, p)| format!("{v:04X}:{p:04X}")).unwrap_or_default()
-    }
-
-    /// What a remembered choice of category is filed under: the vendor and the product, so it holds when the device is plugged elsewhere.
-    pub fn key(&self) -> String {
-        let k = self.vid_pid_text();
-        if k.is_empty() {
-            self.instance_id.to_ascii_uppercase()
-        } else {
-            k
-        }
     }
 
     /// A hub is the plumbing of the bus, not a device to block.
@@ -215,9 +188,7 @@ mod tests {
         let d = device(r"USB\VID_046d&PID_c215\5&2A1B&0&2", "Extreme 3D", &[]);
         assert_eq!(d.vid_pid(), Some((0x046D, 0xC215)));
         assert_eq!(d.vid_pid_text(), "046D:C215");
-        assert_eq!(d.key(), "046D:C215");
         assert_eq!(device(r"USB\ROOT_HUB30\4&1", "Root", &[]).vid_pid(), None);
-        assert_eq!(device(r"USB\VID_04", "Short", &[]).key(), r"USB\VID_04");
     }
 
     #[test]
@@ -275,11 +246,8 @@ mod tests {
     }
 
     #[test]
-    fn categories_are_read_back_from_their_keys() {
-        for c in Category::ALL {
-            assert_eq!(Category::from_key(c.key()), Some(c));
-        }
-        assert_eq!(Category::from_key("nope"), None);
-        assert!(Category::Keyboard.protected() && Category::Mouse.protected() && !Category::Controller.protected());
+    fn only_a_keyboard_or_a_mouse_is_protected() {
+        assert!(Category::Keyboard.protected() && Category::Mouse.protected());
+        assert!(!Category::Controller.protected() && !Category::Other.protected());
     }
 }

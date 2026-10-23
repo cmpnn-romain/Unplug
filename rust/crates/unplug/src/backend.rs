@@ -49,7 +49,7 @@ impl Demo {
             ids: ids.iter().map(|s| s.to_string()).collect(),
             blocked: false,
         };
-        Demo(Mutex::new(vec![
+        let mut devices = vec![
             d(r"USB\VID_044F&PID_B10A\6&1A2B&0&1", "T.16000M FCS Joystick", "Thrustmaster", &[]),
             d(r"USB\VID_044F&PID_B687\6&1A2B&0&2", "TWCS Throttle", "Thrustmaster", &[]),
             d(
@@ -59,6 +59,12 @@ impl Demo {
                 &[],
             ),
             d(r"USB\VID_231D&PID_0136\6&1A2B&0&4", "VKB Gladiator NXT EVO", "VKB-Sim", &[]),
+            d(
+                r"USB\VID_044F&PID_0402\6&1A2B&0&0",
+                "Thrustmaster HOTAS Warthog Dual Throttle and Joystick Combination Set",
+                "Thrustmaster, Inc.",
+                &[],
+            ),
             // a keyboard that reports itself as a composite device; only its interface says it is a keyboard
             d(
                 r"USB\VID_1B1C&PID_2B01\6&1A2B&0&5",
@@ -91,7 +97,12 @@ impl Demo {
                 "Razer",
                 &["USB\\CLASS_01&SUBCLASS_01"],
             ),
-        ]))
+        ];
+        // one is already blocked, to show how that looks
+        if let Some(stick) = devices.iter_mut().find(|d| d.name.starts_with("VKB")) {
+            stick.blocked = true;
+        }
+        Demo(Mutex::new(devices))
     }
 }
 

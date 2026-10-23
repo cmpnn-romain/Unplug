@@ -31,10 +31,11 @@ pub fn screenshot_tick(ctx: &egui::Context) {
     }
 }
 
-/// The tab to start on: the one `UNPLUG_TAB` names, else the controllers.
+/// The tab to start on: the one `UNPLUG_TAB` names (`keyboards`, `mice`, ...), else the controllers.
 pub fn start_tab() -> Category {
-    std::env::var("UNPLUG_TAB")
-        .ok()
-        .and_then(|k| Category::from_key(&k))
+    let wanted = std::env::var("UNPLUG_TAB").unwrap_or_default().to_lowercase();
+    Category::ALL
+        .into_iter()
+        .find(|c| !wanted.is_empty() && c.label().to_lowercase().starts_with(&wanted))
         .unwrap_or(Category::Controller)
 }

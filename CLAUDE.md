@@ -8,7 +8,7 @@ own). Same look, build and release system as the Cairn launcher (`~/Launcher`, <
 | Path | What it is |
 | --- | --- |
 | `rust/crates/unplug/src/device.rs` | the device model and the rules: categories, hubs, composite devices (`group` adds the interfaces' ids to their device) |
-| `rust/crates/unplug/src/prefs.rs` | the categories the player chose, in `%APPDATA%\Unplug\categories.txt` |
+| `rust/crates/unplug/src/update_check.rs`, `http.rs`, `ui/update.rs` | the update, as the launcher's: `update.json` of the latest release (then the API), the download checked against its SHA-256, the exe replaced and started again with `--relaunch` |
 | `rust/crates/unplug/src/winapi.rs` | the tray icon and its menu, showing the hidden window, one copy at a time |
 | `rust/crates/unplug/src/backend.rs` | `Backend` trait: Windows' SetupAPI (`DIF_PROPERTYCHANGE`, `DICS_DISABLE` / `DICS_ENABLE`), and a `Demo` list |
 | `rust/crates/unplug/src/app.rs` | the window; Windows is called on threads, results come back through a channel |
@@ -33,6 +33,7 @@ titles. See `docs/VERSIONING.md`.
 ## Pitfalls
 
 - The exe requests administrator rights (manifest in `build.rs`); without them SetupAPI answers access denied.
-- A keyboard or a mouse must never be blockable (lock-out): the category decides, and the player can only move a device out of it by hand. Hubs and `&MI_` interfaces are never listed.
-- The window has a fixed size, and its close button hides it (the tray's Exit ends the program).
+- A keyboard or a mouse must never be blockable (lock-out): the category decides. Hubs and `&MI_` interfaces are never listed.
+- The window has a fixed size, and its close button hides it (the tray's Exit ends the program). Everything must stay possible from the keyboard (the footer lists the keys).
+- The release workflow uploads `update.json` (with each asset's SHA-256 digest): the update check reads it, so keep the asset name `Unplug-X.Y.Z.exe`.
 - Text files are LF; no BOM.

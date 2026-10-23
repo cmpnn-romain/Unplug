@@ -130,27 +130,3 @@ pub fn switch(ui: &mut Ui, on: bool, enabled: bool, chosen: bool, on_color: Colo
         resp
     }
 }
-
-/// Text that is a button without being drawn as one.
-pub fn quiet_link(ui: &mut Ui, text: &str, enabled: bool) -> Response {
-    let font = egui::FontId::proportional(13.5);
-    let galley = ui.painter().layout_no_wrap(text.to_string(), font.clone(), Color32::WHITE);
-    let (rect, resp) = ui.allocate_exact_size(
-        galley.size() + Vec2::new(16.0, 10.0),
-        if enabled { Sense::click() } else { Sense::hover() },
-    );
-    let color = if !enabled {
-        theme::MUTED_DIM
-    } else if resp.hovered() {
-        theme::PARCHMENT
-    } else {
-        theme::PARCHMENT_DIM
-    };
-    let galley = ui.painter().layout_no_wrap(text.to_string(), font, color);
-    ui.painter().galley(rect.center() - galley.size() / 2.0, galley, color);
-    if enabled {
-        resp.on_hover_cursor(egui::CursorIcon::PointingHand)
-    } else {
-        resp
-    }
-}

@@ -44,11 +44,11 @@ turning a device off needs them.
 
 ## Usage
 
-Each device has a switch: green is on (the device works), red is off (blocked, no application can read it). **Unblock all** puts every device back.
+Each device has a switch: green is on (the device works), red is off (blocked, no application can read it). **Ctrl+U** (or **Unblock all** in the tray menu) puts every device back.
 
 - Devices are in categories (Controllers, Essentials, Storage, Audio, Cameras, Other), Essentials being the keyboards and the mice, found from what each device says about itself.
 - Everything can be done from the keyboard, for when the mouse is one of the devices: **Left** and **Right** choose the category, **Up** and
-  **Down** the device, **Space** switches it, **Ctrl+U** unblocks all, **Esc** hides the window.
+  **Down** the device, **Space** switches it, **Esc** hides the window.
 - Unplug stays in the notification area when you close the window. Click its icon to open the window; right-click it for **Unblock all**,
   **Check for updates** and **Exit**.
 - A keyboard or a mouse cannot be blocked from here, so the tool cannot lock you out. A device that is not a controller asks before it is blocked.

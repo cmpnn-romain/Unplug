@@ -48,12 +48,15 @@ mod imp {
     use std::sync::Mutex;
     use std::time::{Duration, Instant};
     use windows_sys::Win32::Foundation::{CloseHandle, GetLastError, ERROR_ALREADY_EXISTS, HWND, LPARAM, LRESULT, POINT, RECT, WPARAM};
+    use windows_sys::Win32::Graphics::Dwm::{DwmSetWindowAttribute, DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_ROUND};
     use windows_sys::Win32::Graphics::Gdi::{
-        CreateFontW, CreateSolidBrush, DeleteObject, DrawTextW, FillRect, GetDC, GetDeviceCaps, GetStockObject, ReleaseDC, RoundRect,
-        SelectObject, SetBkMode, SetTextColor, DT_LEFT, DT_SINGLELINE, DT_VCENTER, LOGPIXELSY, NULL_PEN,
+        CreateFontW, CreateRoundRectRgn, CreateSolidBrush, DeleteObject, DrawTextW, FillRect, GetDC, GetDeviceCaps, GetStockObject,
+        ReleaseDC, RoundRect, SelectObject, SetBkMode, SetTextColor, SetWindowRgn, DT_LEFT, DT_SINGLELINE, DT_VCENTER, LOGPIXELSY,
+        NULL_PEN,
     };
     use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
     use windows_sys::Win32::System::Threading::{CreateMutexW, GetCurrentThreadId};
+    use windows_sys::Win32::UI::Accessibility::{SetWinEventHook, UnhookWinEvent, HWINEVENTHOOK};
     use windows_sys::Win32::UI::Controls::{DRAWITEMSTRUCT, MEASUREITEMSTRUCT};
     use windows_sys::Win32::UI::Shell::{Shell_NotifyIconW, NIF_ICON, NIF_MESSAGE, NIF_TIP, NIM_ADD, NIM_DELETE, NOTIFYICONDATAW};
     use windows_sys::Win32::UI::WindowsAndMessaging::*;
@@ -218,6 +221,39 @@ mod imp {
         DeleteObject(font);
     }
 
+    /// Rounds the corners of the window Windows made for the menu: the corner preference of Windows 11, or, where that is not known (Windows 10), a
+    /// window region with rounded corners.
+    unsafe fn round_menu_window(hwnd: HWND) {
+        let mut name = [0u16; 16];
+        let n = GetClassNameW(hwnd, name.as_mut_ptr(), name.len() as i32);
+        if String::from_utf16_lossy(&name[..n.max(0) as usize]) != "#32768" {
+            return;
+        }
+        let preference = DWMWCP_ROUND;
+        let hr = DwmSetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE as u32, &preference as *const _ as *const _, 4);
+        if hr != 0 {
+            let mut r: RECT = std::mem::zeroed();
+            GetWindowRect(hwnd, &mut r);
+            let radius = (12.0 * dpi_scale()).round() as i32;
+            let region = CreateRoundRectRgn(0, 0, r.right - r.left + 1, r.bottom - r.top + 1, radius, radius);
+            SetWindowRgn(hwnd, region, 1);
+        }
+    }
+
+    unsafe extern "system" fn menu_shown(
+        _hook: HWINEVENTHOOK,
+        _event: u32,
+        hwnd: HWND,
+        _object: i32,
+        _child: i32,
+        _thread: u32,
+        _time: u32,
+    ) {
+        if !hwnd.is_null() {
+            round_menu_window(hwnd);
+        }
+    }
+
     unsafe fn tray_menu() -> HMENU {
         let menu = CreatePopupMenu();
         for (i, (cmd, _, _)) in MENU.iter().enumerate() {
@@ -265,7 +301,20 @@ mod imp {
                     let mut at = POINT { x: 0, y: 0 };
                     GetCursorPos(&mut at);
                     SetForegroundWindow(hwnd);
+                    // told when Windows has made the menu's window, to round its corners (the menu loop below runs until it closes)
+                    let hook = SetWinEventHook(
+                        EVENT_SYSTEM_MENUPOPUPSTART,
+                        EVENT_SYSTEM_MENUPOPUPSTART,
+                        null_mut(),
+                        Some(menu_shown),
+                        0,
+                        GetCurrentThreadId(),
+                        WINEVENT_OUTOFCONTEXT,
+                    );
                     let cmd = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_NONOTIFY | TPM_RIGHTBUTTON, at.x, at.y, 0, hwnd, null());
+                    if !hook.is_null() {
+                        UnhookWinEvent(hook);
+                    }
                     DestroyMenu(menu);
                     match cmd as usize {
                         CMD_OPEN => send(TrayEvent::Open),
